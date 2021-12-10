@@ -452,6 +452,20 @@ _getV100Count() {
     v100=`nvidia-smi | grep -i V100 | wc -l`
 }
 
+_get_CPUNUMA() {
+    cpu_cnt=$(lscpu | grep Socket | awk '{print $2}')
+    nodes=($(lscpu | grep "NUMA node.* CPU" | awk '{ print $2 }'))
+    if [ $cpu_cnt == 1 ]; then
+        cpu_numa=${nodes[0]:4}
+    elif [ $cpu_cnt == 2 ]; then
+        cpu_numa="${nodes[0]:4},${nodes[1]:4}"
+    else
+        echo "Unsupported"
+        cpu_numa=""
+    fi
+}
+
+#ToDo: Use lscpu to get GPU NUMA as well instead of dmesg
 _get_GPUNUMA() {
     OUT=""
     for node in $(dmesg | grep -i 'NODE_DATA(' | cut -d '(' -f2 | cut -d ')' -f1)
@@ -463,8 +477,9 @@ _get_GPUNUMA() {
 
 _calculateCpuset() {
     _getV100Count
+    _get_CPUNUMA
     _get_GPUNUMA
-    cpuset="0"
+    cpuset=$cpu_numa
     if [ $v100 -eq "0" ] ; then
         echo "INFO: There are no V100 GPUs detected."
         gpumemset=
